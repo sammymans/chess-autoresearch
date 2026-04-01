@@ -9,14 +9,14 @@ Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
 The repo has a small set of files:
 
 - **`src/lib.rs`** — the Rust search backend. Alpha-beta search, evaluation, move ordering, pruning — all in ~1000 lines of Rust. ~2M nodes/sec. **This file is edited and iterated on by the agent**.
-- **`engine.py`** — Python wrapper. Imports the Rust module, handles the opening book, converts between python-chess and Rust types. Falls back to a pure Python search if Rust isn't built.
+- **`engine.py`** — thin Python wrapper. Imports the Rust module and provides the interface that the harness expects. Read-only.
 - **`eval_harness.py`** — fixed evaluation harness. Plays the engine against Stockfish at calibrated ELO levels, computes an estimated rating, and saves game telemetry. Not modified.
 - **`program.md`** — agent instructions. Point your agent here and let it go. **This file is edited and iterated on by the human**.
 - **`play.py`** — interactive CLI for playing against the engine.
 - **`server.py`** — lightweight FastAPI server for browser-based play.
 - **`replay.html`** — browser-based game replay viewer with full engine telemetry.
 
-The metric is **estimated ELO** — higher is better. Each evaluation plays ~20-28 games against Stockfish at levels from 800 to 2000, alternating colors.
+The metric is **estimated ELO** — higher is better. Each evaluation plays 10 games against Stockfish at adaptive ELO levels centered on the engine's current strength, alternating colors and openings.
 
 ## Quick start
 
@@ -77,7 +77,7 @@ Open `analysis.ipynb` to plot ELO progression across experiments.
 
 ```
 src/lib.rs        — Rust search backend (agent modifies this)
-engine.py         — Python wrapper + opening book + fallback search
+engine.py         — thin Python wrapper (read-only)
 eval_harness.py   — plays vs Stockfish, measures ELO (do not modify)
 play.py           — interactive CLI game
 server.py         — FastAPI server for browser play
@@ -91,7 +91,7 @@ pyproject.toml    — Python dependencies + maturin build config
 ## Design choices
 
 - **Classical engine, no neural networks.** Alpha-beta search with hand-crafted evaluation. No torch, no training data. The "learning" happens through the autoresearch loop editing heuristic constants.
-- **Rust search backend.** ~2M nodes/sec, depth 8-9 at 100ms. Python fallback available if Rust isn't built.
+- **Rust search backend.** ~2M nodes/sec, depth 8-9 at 100ms.
 - **Fixed evaluation harness.** Games against Stockfish at known ELO levels. The metric (estimated ELO) is objective and reproducible.
 - **Full telemetry.** Every engine move during evaluation is logged with eval score, principal variation, depth, nodes, and timing. Replay any game in the browser.
 

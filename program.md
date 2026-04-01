@@ -49,11 +49,11 @@ Once the harness finishes it prints a summary like this:
 ```
 ---
 estimated_elo:  1234.5
-games:          28
-wins:           14
-losses:         8
-draws:          6
-time_seconds:   187.3
+games:          10
+wins:           5
+losses:         3
+draws:          2
+time_seconds:   120.5
 ```
 
 You can extract the key metric from the log file:
@@ -82,9 +82,9 @@ Example:
 
 ```
 commit	estimated_elo	games_played	status	description
-a1b2c3d	1150.0	28	keep	baseline
-b2c3d4e	1185.0	28	keep	increase knight value to 330
-c3d4e5f	1120.0	28	discard	experimental king tropism eval
+a1b2c3d	1750.0	10	keep	baseline
+b2c3d4e	1810.0	10	keep	increase knight value to 330
+c3d4e5f	1720.0	10	discard	experimental king tropism eval
 d4e5f6g	0.0	0	crash	syntax error in PST
 ```
 
