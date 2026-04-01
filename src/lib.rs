@@ -1028,7 +1028,7 @@ impl Searcher {
 
             let score;
             if reduction > 0 {
-                // Reduced search
+                // LMR: reduced null-window search
                 let reduced = -self.alpha_beta(
                     &new_board,
                     depth - 1 - reduction,
@@ -1038,7 +1038,7 @@ impl Searcher {
                     path_hashes,
                 );
                 if reduced > alpha && !self.stop {
-                    // Re-search at full depth
+                    // Re-search at full depth with full window
                     score = -self.alpha_beta(
                         &new_board,
                         depth - 1,
@@ -1050,7 +1050,31 @@ impl Searcher {
                 } else {
                     score = reduced;
                 }
+            } else if i > 0 {
+                // PVS: null-window search for non-first moves
+                let pvs = -self.alpha_beta(
+                    &new_board,
+                    depth - 1,
+                    -alpha - 1,
+                    -alpha,
+                    ply + 1,
+                    path_hashes,
+                );
+                if pvs > alpha && pvs < beta && !self.stop {
+                    // Re-search with full window
+                    score = -self.alpha_beta(
+                        &new_board,
+                        depth - 1,
+                        -beta,
+                        -alpha,
+                        ply + 1,
+                        path_hashes,
+                    );
+                } else {
+                    score = pvs;
+                }
             } else {
+                // First move: full window search
                 score = -self.alpha_beta(
                     &new_board,
                     depth - 1,
