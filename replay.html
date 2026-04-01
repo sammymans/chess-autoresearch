@@ -329,6 +329,147 @@ body {
     background: #fce4ec;
     color: #c62828;
 }
+
+/* --- Mode tabs --- */
+.mode-tabs {
+    display: flex;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.mode-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: #999;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s;
+}
+
+.mode-tab:hover { color: #555; }
+.mode-tab.active { color: #333; border-bottom-color: #b58863; }
+
+/* --- Play mode --- */
+.play-setup {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.play-setup h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.play-setup p {
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 24px;
+}
+
+.play-options {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.play-options label {
+    font-size: 12px;
+    color: #666;
+}
+
+.play-options select {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+}
+
+.play-btn {
+    padding: 10px 32px;
+    font-size: 14px;
+    font-weight: 600;
+    background: #333;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.play-btn:hover { background: #555; }
+
+.play-status {
+    margin-top: 16px;
+    font-size: 13px;
+    color: #888;
+    min-height: 20px;
+}
+
+.play-status.error { color: #c33; }
+.play-status.thinking { color: #b58863; }
+
+.square.selectable { cursor: pointer; }
+.square.selected-sq {
+    box-shadow: inset 0 0 0 3px rgba(0,100,0,0.5);
+}
+.square.move-target::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: rgba(0,0,0,0.15);
+    border-radius: 50%;
+}
+.square.move-target-capture::after {
+    content: '';
+    position: absolute;
+    width: 52px;
+    height: 52px;
+    border: 4px solid rgba(0,0,0,0.15);
+    border-radius: 50%;
+}
+
+.play-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+    align-items: center;
+}
+
+.play-controls button {
+    background: #fff;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.play-controls button:hover { background: #f0f0f0; }
+
+.game-over-banner {
+    margin-top: 12px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    text-align: center;
+}
+
+.game-over-banner.win { background: #e8f5e9; color: #2e7d32; }
+.game-over-banner.loss { background: #fce4ec; color: #c62828; }
+.game-over-banner.draw { background: #fff8e1; color: #bf8f00; }
 </style>
 </head>
 <body>
@@ -337,54 +478,122 @@ body {
     <div class="sidebar">
         <div class="sidebar-header">
             <h1>Chess Autoresearch</h1>
-            <div class="drop-zone" id="dropZone">
+            <div class="mode-tabs">
+                <button class="mode-tab active" id="tabReplay" onclick="switchMode('replay')">Replay</button>
+                <button class="mode-tab" id="tabPlay" onclick="switchMode('play')">Play</button>
+            </div>
+        </div>
+
+        <!-- Replay sidebar -->
+        <div id="replaySidebar">
+            <div class="drop-zone" id="dropZone" style="margin: 12px 16px;">
                 Drop a .jsonl file here<br>or click to browse
                 <input type="file" id="fileInput" accept=".jsonl">
             </div>
+            <div class="summary-bar" id="summaryBar">
+                <div class="elo" id="eloDisplay">---</div>
+                <div class="stats" id="statsDisplay"></div>
+            </div>
+            <div class="game-list" id="gameList"></div>
         </div>
-        <div class="summary-bar" id="summaryBar">
-            <div class="elo" id="eloDisplay">---</div>
-            <div class="stats" id="statsDisplay"></div>
+
+        <!-- Play sidebar -->
+        <div id="playSidebar" style="display: none; padding: 16px;">
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">Play as</label>
+                <select id="playColor" style="width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; font-family: inherit;">
+                    <option value="white">White</option>
+                    <option value="black">Black</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">Engine think time</label>
+                <select id="playMovetime" style="width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; font-family: inherit;">
+                    <option value="100">100ms (fast)</option>
+                    <option value="200" selected>200ms</option>
+                    <option value="500">500ms</option>
+                    <option value="1000">1 second</option>
+                    <option value="2000">2 seconds</option>
+                </select>
+            </div>
+            <button class="play-btn" style="width: 100%;" onclick="startPlayGame()">New Game</button>
+            <div class="play-status" id="playStatus"></div>
+
+            <div id="playMoveHistory" style="margin-top: 16px;">
+                <div class="move-list" id="playMoveList" style="max-height: 300px;"></div>
+            </div>
         </div>
-        <div class="game-list" id="gameList"></div>
     </div>
 
     <div class="main" id="mainArea">
-        <div class="empty-state" id="emptyState">
-            <div class="icon">&#9823;</div>
-            Load a game telemetry file (.jsonl)<br>
-            from the games/ directory to get started.
+        <!-- Replay view -->
+        <div id="replayView">
+            <div class="empty-state" id="emptyState">
+                <div class="icon">&#9823;</div>
+                Load a game telemetry file (.jsonl)<br>
+                from the games/ directory to get started.
+            </div>
+
+            <div id="gameView" style="display: none;">
+                <div class="board-area">
+                    <div class="eval-bar-container">
+                        <div class="eval-bar-label" id="evalBarLabel">0.0</div>
+                        <div class="eval-bar-white" id="evalBarWhite" style="height: 50%;"></div>
+                    </div>
+                    <div class="board-with-labels">
+                        <div class="player-label" id="playerTop"></div>
+                        <div class="board" id="board"></div>
+                        <div class="player-label" id="playerBottom"></div>
+                    </div>
+                    <div class="telemetry" id="telemetry">
+                        <h3>Engine Thinking</h3>
+                        <div id="telemetryContent">
+                            <div class="telemetry-row"><span class="label">Select a move</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button id="btnStart" title="Start">|&lt;</button>
+                    <button id="btnPrev" title="Previous">&lt;</button>
+                    <button id="btnNext" title="Next">&gt;</button>
+                    <button id="btnEnd" title="End">&gt;|</button>
+                    <button id="btnFlip" title="Flip board">Flip</button>
+                    <button id="btnAutoplay" title="Autoplay">Play</button>
+                </div>
+
+                <div class="move-list" id="moveList"></div>
+            </div>
         </div>
 
-        <div id="gameView" style="display: none;">
+        <!-- Play view -->
+        <div id="playView" style="display: none;">
             <div class="board-area">
                 <div class="eval-bar-container">
-                    <div class="eval-bar-label" id="evalBarLabel">0.0</div>
-                    <div class="eval-bar-white" id="evalBarWhite" style="height: 50%;"></div>
+                    <div class="eval-bar-label" id="playEvalLabel">0.0</div>
+                    <div class="eval-bar-white" id="playEvalBar" style="height: 50%;"></div>
                 </div>
                 <div class="board-with-labels">
-                    <div class="player-label" id="playerTop"></div>
-                    <div class="board" id="board"></div>
-                    <div class="player-label" id="playerBottom"></div>
+                    <div class="player-label" id="playPlayerTop"></div>
+                    <div class="board" id="playBoard"></div>
+                    <div class="player-label" id="playPlayerBottom"></div>
                 </div>
-                <div class="telemetry" id="telemetry">
+                <div class="telemetry" id="playTelemetry">
                     <h3>Engine Thinking</h3>
-                    <div id="telemetryContent">
-                        <div class="telemetry-row"><span class="label">Select a move</span></div>
+                    <div id="playTelemetryContent">
+                        <div class="telemetry-row"><span class="label">Start a game to play</span></div>
                     </div>
                 </div>
             </div>
 
-            <div class="controls">
-                <button id="btnStart" title="Start">|&lt;</button>
-                <button id="btnPrev" title="Previous">&lt;</button>
-                <button id="btnNext" title="Next">&gt;</button>
-                <button id="btnEnd" title="End">&gt;|</button>
-                <button id="btnFlip" title="Flip board">Flip</button>
-                <button id="btnAutoplay" title="Autoplay">Play</button>
+            <div id="playGameOver"></div>
+
+            <div class="play-controls">
+                <button onclick="startPlayGame()">New Game</button>
+                <button onclick="playFlipped = !playFlipped; renderPlayBoard(); updatePlayLabels();">Flip</button>
             </div>
 
-            <div class="move-list" id="moveList"></div>
+            <div class="move-list" id="playMoveList"></div>
         </div>
     </div>
 </div>
@@ -1019,12 +1228,419 @@ function stopAutoplay() {
 
 // Keyboard navigation
 document.addEventListener('keydown', e => {
+    if (currentMode !== 'replay') return;
     if (e.key === 'ArrowLeft') goToPly(currentPly - 1);
     else if (e.key === 'ArrowRight') goToPly(currentPly + 1);
     else if (e.key === 'Home') goToPly(0);
     else if (e.key === 'End') goToPly(positions.length - 1);
 });
+
+// =============================================
+// MODE SWITCHING
+// =============================================
+let currentMode = 'replay';
+
+function switchMode(mode) {
+    currentMode = mode;
+    document.getElementById('tabReplay').classList.toggle('active', mode === 'replay');
+    document.getElementById('tabPlay').classList.toggle('active', mode === 'play');
+    document.getElementById('replaySidebar').style.display = mode === 'replay' ? 'block' : 'none';
+    document.getElementById('playSidebar').style.display = mode === 'play' ? 'block' : 'none';
+    document.getElementById('replayView').style.display = mode === 'replay' ? 'block' : 'none';
+    document.getElementById('playView').style.display = mode === 'play' ? 'block' : 'none';
+}
+
+// =============================================
+// PLAY MODE
+// =============================================
+const API_BASE = 'http://127.0.0.1:8000';
+
+let playBoard = null;       // SimpleBoard instance
+let playFlipped = false;
+let playerColor = 'white';  // human plays as
+let playMovesSAN = [];
+let playMovesUCI = [];
+let playSelectedSq = -1;
+let playLegalMoves = [];    // [{uci, san, from, to}, ...]
+let playGameActive = false;
+let playThinking = false;
+
+function setPlayStatus(msg, cls) {
+    const el = document.getElementById('playStatus');
+    el.textContent = msg;
+    el.className = 'play-status' + (cls ? ' ' + cls : '');
+}
+
+async function startPlayGame() {
+    playerColor = document.getElementById('playColor').value;
+    playFlipped = playerColor === 'black';
+    playBoard = new SimpleBoard();
+    playMovesSAN = [];
+    playMovesUCI = [];
+    playSelectedSq = -1;
+    playLegalMoves = [];
+    playGameActive = true;
+    playThinking = false;
+    document.getElementById('playGameOver').innerHTML = '';
+    setPlayStatus('');
+
+    updatePlayLabels();
+    renderPlayBoard();
+    renderPlayMoveList();
+    updatePlayEval(null);
+    updatePlayTelemetry(null);
+
+    // If engine plays white, make its move first
+    if (playerColor === 'black') {
+        await engineMove();
+    } else {
+        await fetchLegalMoves();
+    }
+}
+
+function updatePlayLabels() {
+    const topIsBlack = !playFlipped;
+    const topLabel = document.getElementById('playPlayerTop');
+    const bottomLabel = document.getElementById('playPlayerBottom');
+
+    const youColor = playerColor;
+    const engineColor = playerColor === 'white' ? 'black' : 'white';
+
+    if (topIsBlack) {
+        const topIsYou = youColor === 'black';
+        topLabel.innerHTML = topIsYou
+            ? '<span class="player-tag stockfish">You</span> You (Black)'
+            : '<span class="player-tag engine">Engine</span> Engine (Black)';
+        bottomLabel.innerHTML = topIsYou
+            ? '<span class="player-tag engine">Engine</span> Engine (White)'
+            : '<span class="player-tag stockfish">You</span> You (White)';
+    } else {
+        const topIsYou = youColor === 'white';
+        topLabel.innerHTML = topIsYou
+            ? '<span class="player-tag stockfish">You</span> You (White)'
+            : '<span class="player-tag engine">Engine</span> Engine (White)';
+        bottomLabel.innerHTML = topIsYou
+            ? '<span class="player-tag engine">Engine</span> Engine (Black)'
+            : '<span class="player-tag stockfish">You</span> You (Black)';
+    }
+}
+
+function renderPlayBoard() {
+    const boardEl = document.getElementById('playBoard');
+    boardEl.innerHTML = '';
+    const fen = playBoard.fen();
+    const boardState = fenToBoard(fen);
+
+    // Highlight last move
+    let hlFrom = -1, hlTo = -1;
+    if (playMovesUCI.length > 0) {
+        const lastUci = playMovesUCI[playMovesUCI.length - 1];
+        hlFrom = uciToSq(lastUci.substring(0, 2));
+        hlTo = uciToSq(lastUci.substring(2, 4));
+    }
+
+    // Legal move targets for selected piece
+    const moveTargets = new Set();
+    const captureTargets = new Set();
+    if (playSelectedSq >= 0) {
+        for (const m of playLegalMoves) {
+            if (uciToSq(m.from) === playSelectedSq) {
+                const toSq = uciToSq(m.to);
+                if (boardState[toSq]) captureTargets.add(toSq);
+                else moveTargets.add(toSq);
+            }
+        }
+    }
+
+    const ranks = playFlipped ? [0,1,2,3,4,5,6,7] : [7,6,5,4,3,2,1,0];
+    const files = playFlipped ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+
+    const isHumanTurn = playGameActive && !playThinking &&
+        ((playBoard.turn === 'w' && playerColor === 'white') ||
+         (playBoard.turn === 'b' && playerColor === 'black'));
+
+    for (const r of ranks) {
+        for (const f of files) {
+            const sq = r * 8 + f;
+            const isLight = (r + f) % 2 === 1;
+            const el = document.createElement('div');
+            el.className = 'square ' + (isLight ? 'light' : 'dark');
+            if (sq === hlFrom) el.classList.add('highlight-from');
+            if (sq === hlTo) el.classList.add('highlight-to');
+            if (sq === playSelectedSq) el.classList.add('selected-sq');
+            if (moveTargets.has(sq)) el.classList.add('move-target');
+            if (captureTargets.has(sq)) el.classList.add('move-target-capture');
+
+            const piece = boardState[sq];
+            if (piece) {
+                const span = document.createElement('span');
+                span.textContent = PIECE_CHAR[piece] || '';
+                span.className = isWhitePiece(piece) ? 'piece-white' : 'piece-black';
+                el.appendChild(span);
+            }
+
+            // Coordinates
+            if (f === (playFlipped ? 7 : 0)) {
+                const coord = document.createElement('span');
+                coord.className = 'coord coord-rank';
+                coord.textContent = r + 1;
+                el.appendChild(coord);
+            }
+            if (r === (playFlipped ? 7 : 0)) {
+                const coord = document.createElement('span');
+                coord.className = 'coord coord-file';
+                coord.textContent = String.fromCharCode(97 + f);
+                el.appendChild(coord);
+            }
+
+            if (isHumanTurn) {
+                el.classList.add('selectable');
+                el.addEventListener('click', () => handlePlayClick(sq, boardState));
+            }
+
+            boardEl.appendChild(el);
+        }
+    }
+}
+
+function handlePlayClick(sq, boardState) {
+    // If clicking a move target, make the move
+    if (playSelectedSq >= 0) {
+        for (const m of playLegalMoves) {
+            if (uciToSq(m.from) === playSelectedSq && uciToSq(m.to) === sq) {
+                // Check for promotion
+                const piece = boardState[playSelectedSq];
+                const isPromo = piece && piece.toUpperCase() === 'P' &&
+                    (Math.floor(sq / 8) === 7 || Math.floor(sq / 8) === 0);
+                if (isPromo) {
+                    // Auto-promote to queen (most common)
+                    const promoMove = playLegalMoves.find(pm =>
+                        uciToSq(pm.from) === playSelectedSq &&
+                        uciToSq(pm.to) === sq &&
+                        pm.uci.endsWith('q')
+                    );
+                    if (promoMove) {
+                        makePlayMove(promoMove);
+                        return;
+                    }
+                }
+                makePlayMove(m);
+                return;
+            }
+        }
+    }
+
+    // If clicking own piece, select it
+    const piece = boardState[sq];
+    if (piece) {
+        const pieceIsWhite = isWhitePiece(piece);
+        const humanIsWhite = playerColor === 'white';
+        if (pieceIsWhite === humanIsWhite) {
+            playSelectedSq = (playSelectedSq === sq) ? -1 : sq;
+            renderPlayBoard();
+            return;
+        }
+    }
+
+    // Deselect
+    playSelectedSq = -1;
+    renderPlayBoard();
+}
+
+async function makePlayMove(moveObj) {
+    const move = playBoard.parseSAN(moveObj.san);
+    if (!move) return;
+
+    playMovesSAN.push(moveObj.san);
+    playMovesUCI.push(moveObj.uci);
+    playBoard.makeMove(move);
+    playSelectedSq = -1;
+    renderPlayBoard();
+    renderPlayMoveList();
+
+    if (await checkPlayGameOver()) return;
+
+    // Engine responds
+    await engineMove();
+}
+
+async function engineMove() {
+    playThinking = true;
+    setPlayStatus('Engine is thinking...', 'thinking');
+    renderPlayBoard(); // disable clicks
+
+    const movetime = parseInt(document.getElementById('playMovetime').value);
+
+    try {
+        const resp = await fetch(`${API_BASE}/move`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fen: playBoard.fen(), movetime_ms: movetime }),
+        });
+
+        if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+        const data = await resp.json();
+
+        // Apply engine move
+        const move = playBoard.parseSAN(data.move_san);
+        if (!move) throw new Error('Invalid move from engine');
+
+        playMovesSAN.push(data.move_san);
+        playMovesUCI.push(data.move_uci);
+        playBoard.makeMove(move);
+
+        // Update eval (from white's perspective)
+        const whiteScore = playerColor === 'black' ? data.score : -data.score;
+        updatePlayEval(whiteScore);
+        updatePlayTelemetry(data);
+
+        playThinking = false;
+        setPlayStatus('');
+        renderPlayBoard();
+        renderPlayMoveList();
+
+        if (await checkPlayGameOver()) return;
+
+        await fetchLegalMoves();
+
+    } catch (e) {
+        playThinking = false;
+        setPlayStatus(`Error: ${e.message}. Is the server running? (uv run server.py)`, 'error');
+        renderPlayBoard();
+    }
+}
+
+async function fetchLegalMoves() {
+    try {
+        const resp = await fetch(`${API_BASE}/legal_moves`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fen: playBoard.fen() }),
+        });
+        if (!resp.ok) throw new Error(`Server error: ${resp.status}`);
+        const data = await resp.json();
+        playLegalMoves = data.moves;
+    } catch (e) {
+        setPlayStatus(`Error: ${e.message}. Is the server running? (uv run server.py)`, 'error');
+        playLegalMoves = [];
+    }
+}
+
+async function checkPlayGameOver() {
+    await fetchLegalMoves();
+    if (playLegalMoves.length > 0) return false;
+
+    playGameActive = false;
+    const banner = document.getElementById('playGameOver');
+
+    const humanToMove = (playBoard.turn === 'w' && playerColor === 'white') ||
+                        (playBoard.turn === 'b' && playerColor === 'black');
+
+    // If the last move included check notation, it's checkmate; otherwise stalemate
+    const lastSAN = playMovesSAN[playMovesSAN.length - 1] || '';
+    const isCheck = lastSAN.includes('+') || lastSAN.includes('#');
+
+    if (isCheck) {
+        if (humanToMove) {
+            banner.innerHTML = '<div class="game-over-banner loss">Checkmate — you lost</div>';
+        } else {
+            banner.innerHTML = '<div class="game-over-banner win">Checkmate — you won!</div>';
+        }
+    } else {
+        banner.innerHTML = '<div class="game-over-banner draw">Stalemate — draw</div>';
+    }
+
+    renderPlayBoard();
+    return true;
+}
+
+function updatePlayEval(score) {
+    const bar = document.getElementById('playEvalBar');
+    const label = document.getElementById('playEvalLabel');
+
+    if (score === null || score === undefined) {
+        bar.style.height = '50%';
+        label.textContent = '0.0';
+        return;
+    }
+
+    const pawns = score / 100;
+    const isMate = Math.abs(score) >= 90000;
+
+    if (isMate) {
+        const mateIn = Math.ceil((100000 - Math.abs(score)) / 2);
+        label.textContent = (score > 0 ? '#' : '#-') + mateIn;
+        bar.style.height = score > 0 ? '95%' : '5%';
+    } else {
+        label.textContent = (pawns >= 0 ? '+' : '') + pawns.toFixed(1);
+        const pct = 50 + 50 * (2 / (1 + Math.exp(-pawns / 1.5)) - 1);
+        bar.style.height = Math.max(2, Math.min(98, pct)) + '%';
+    }
+}
+
+function updatePlayTelemetry(data) {
+    const content = document.getElementById('playTelemetryContent');
+    if (!data) {
+        content.innerHTML = '<div class="telemetry-row"><span class="label">Start a game to play</span></div>';
+        return;
+    }
+
+    const scoreStr = formatScore(data.score);
+    const scoreClass = data.score > 20 ? 'positive' : data.score < -20 ? 'negative' : '';
+    const nps = data.time_ms > 0 ? Math.round(data.nodes / (data.time_ms / 1000)) : 0;
+
+    content.innerHTML = `
+        <div class="telemetry-row">
+            <span class="label">Move</span>
+            <span class="value">${data.move_san}</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="label">Eval</span>
+            <span class="value ${scoreClass}">${scoreStr}</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="label">Depth</span>
+            <span class="value">${data.depth}</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="label">Nodes</span>
+            <span class="value">${data.nodes.toLocaleString()}</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="label">NPS</span>
+            <span class="value">${nps.toLocaleString()}</span>
+        </div>
+        <div class="telemetry-row">
+            <span class="label">Time</span>
+            <span class="value">${data.time_ms}ms</span>
+        </div>
+        <div class="pv-line">PV: ${data.pv ? data.pv.join(' ') : '...'}</div>
+    `;
+}
+
+function renderPlayMoveList() {
+    const list = document.getElementById('playMoveList');
+    list.innerHTML = '';
+
+    for (let i = 0; i < playMovesSAN.length; i++) {
+        if (i % 2 === 0) {
+            const num = document.createElement('span');
+            num.className = 'move-num';
+            num.textContent = (Math.floor(i / 2) + 1) + '.';
+            list.appendChild(num);
+        }
+        const el = document.createElement('span');
+        el.className = 'move' + (i === playMovesSAN.length - 1 ? ' current' : '');
+        el.textContent = playMovesSAN[i];
+        list.appendChild(el);
+    }
+
+    list.scrollTop = list.scrollHeight;
+}
 </script>
+
+</body>
+</html>
 
 </body>
 </html>
