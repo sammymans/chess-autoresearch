@@ -13,6 +13,7 @@ The repo has a small set of files:
 - **`eval_harness.py`** — fixed evaluation harness. Plays the engine against Stockfish at calibrated ELO levels, computes an estimated rating, and saves game telemetry. Not modified.
 - **`program.md`** — agent instructions. Point your agent here and let it go. **This file is edited and iterated on by the human**.
 - **`play.py`** — interactive CLI for playing against the engine.
+- **`server.py`** — lightweight FastAPI server for browser-based play.
 - **`replay.html`** — browser-based game replay viewer with full engine telemetry.
 
 The metric is **estimated ELO** — higher is better. Each evaluation plays ~20-28 games against Stockfish at levels from 800 to 2000, alternating colors.
@@ -79,6 +80,7 @@ src/lib.rs        — Rust search backend (agent modifies this)
 engine.py         — Python wrapper + opening book + fallback search
 eval_harness.py   — plays vs Stockfish, measures ELO (do not modify)
 play.py           — interactive CLI game
+server.py         — FastAPI server for browser play
 replay.html       — browser game replay viewer
 program.md        — agent instructions
 analysis.ipynb    — experiment analysis notebook
