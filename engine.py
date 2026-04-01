@@ -1,9 +1,9 @@
 """
 Chess engine with alpha-beta search and heuristic evaluation.
 
-This is the ONLY file the autoresearch agent modifies.
-Everything is fair game: piece values, piece-square tables, evaluation terms,
-search heuristics, move ordering, pruning parameters.
+The autoresearch agent modifies this file and/or src/lib.rs (the Rust backend).
+If the Rust module is available, it is used for search (much faster).
+Otherwise, the Python search below is used as a fallback.
 """
 
 from __future__ import annotations
@@ -12,6 +12,13 @@ import time
 from dataclasses import dataclass, field
 
 import chess
+
+# Try to import Rust backend
+try:
+    import chess_engine_rs
+    _USE_RUST = True
+except ImportError:
+    _USE_RUST = False
 
 # ---------------------------------------------------------------------------
 # CONSTANTS
@@ -909,7 +916,36 @@ def choose_move(
     Returns:
         SearchResult with move, score, depth, nodes, PV, and telemetry.
     """
-    # Opening book lookup
+    if _USE_RUST:
+        result = chess_engine_rs.search_position(
+            board.fen(),
+            movetime_ms if movetime_ms else 0,
+            depth if depth else 0,
+        )
+        # Convert PV from UCI to SAN
+        pv_san = []
+        temp = board.copy()
+        for uci_str in result["pv"]:
+            try:
+                mv = chess.Move.from_uci(uci_str)
+                if mv in temp.legal_moves:
+                    pv_san.append(temp.san(mv))
+                    temp.push(mv)
+                else:
+                    break
+            except Exception:
+                break
+
+        return SearchResult(
+            move=chess.Move.from_uci(result["move"]),
+            score=result["score"],
+            depth=result["depth"],
+            nodes=result["nodes"],
+            pv=pv_san,
+            time_ms=result["time_ms"],
+        )
+
+    # Python fallback: opening book + Python search
     key = " ".join(board.fen().split()[:4])
     book_move = OPENING_BOOK.get(key)
     if book_move and book_move in board.legal_moves:

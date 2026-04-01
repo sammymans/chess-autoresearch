@@ -27,3 +27,11 @@ games/
 
 # Logs
 *.log
+
+# Rust build artifacts
+target/
+
+# Maturin/compiled extensions
+*.so
+*.dylib
+*.pyd
