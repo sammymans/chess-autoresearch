@@ -2,7 +2,7 @@
 Evaluation harness for the chess engine autoresearch loop.
 
 DO NOT MODIFY THIS FILE. This is the fixed evaluation harness.
-The autoresearch agent should only modify engine.py.
+The autoresearch agent should only modify src/lib.rs.
 
 Plays the engine against Stockfish at calibrated ELO levels,
 computes an estimated ELO rating, and saves game telemetry.
@@ -29,21 +29,17 @@ import chess.pgn
 # ---------------------------------------------------------------------------
 
 # Games per Stockfish ELO level (half as white, half as black)
-GAMES_PER_LEVEL = 4
+GAMES_PER_LEVEL = 2
 
-# Stockfish levels to test against.
-# Each entry is (approx_elo, skill_level, uci_elo).
-# For levels below Stockfish's UCI_Elo minimum (1320), we use Skill Level only.
-# Skill Level 0-20 maps roughly to 800-3000+ ELO.
-STOCKFISH_LEVELS = [
-    (800,  0,  None),   # Skill 0: very weak
-    (1000, 3,  None),   # Skill 3: beginner
-    (1200, 6,  None),   # Skill 6: casual
-    (1400, 9,  1400),   # Skill 9 + UCI_Elo 1400
-    (1600, 12, 1600),   # Skill 12 + UCI_Elo 1600
-    (1800, 15, 1800),   # Skill 15 + UCI_Elo 1800
-    (2000, 20, 2000),   # Skill 20 + UCI_Elo 2000
-]
+# Anchor configuration: 5 levels spaced 100 apart.
+# Center is determined adaptively from the last kept result in results.tsv,
+# falling back to DEFAULT_ANCHOR_CENTER for the first run.
+DEFAULT_ANCHOR_CENTER = 1800
+ANCHOR_COUNT = 5
+ANCHOR_STEP = 100
+
+# Path to results file for adaptive anchoring
+RESULTS_FILE = Path("results.tsv")
 
 # Time per move for our engine (ms)
 ENGINE_MOVETIME_MS = 100
@@ -56,6 +52,22 @@ MAX_PLIES = 200
 
 # Output directory for game telemetry
 GAMES_DIR = Path("games")
+
+# Opening lines for diversity (mix of openings to reduce opening-dependent variance)
+OPENING_LINES = [
+    # Empty = start from initial position
+    [],
+    # Italian Game: 1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5
+    ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "f8c5"],
+    # QGD: 1.d4 d5 2.c4 e6 3.Nc3 Nf6
+    ["d2d4", "d7d5", "c2c4", "e7e6", "b1c3", "g8f6"],
+    # Sicilian Open: 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4
+    ["e2e4", "c7c5", "g1f3", "d7d6", "d2d4", "c5d4", "f3d4"],
+    # English: 1.c4 e5 2.Nc3 Nf6 3.Nf3 Nc6
+    ["c2c4", "e7e5", "b1c3", "g8f6", "g1f3", "b8c6"],
+    # French: 1.e4 e6 2.d4 d5 3.Nc3 Nf6
+    ["e2e4", "e7e6", "d2d4", "d7d5", "b1c3", "g8f6"],
+]
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +98,7 @@ class GameResult:
     result_reason: str
     num_plies: int
     pgn: str
+    opening_index: int = 0
     engine_moves: list[MoveRecord] = field(default_factory=list)
 
 
@@ -95,17 +108,14 @@ class GameResult:
 
 def find_stockfish() -> str:
     """Find Stockfish binary, checking common locations."""
-    # Check env var first
     env_path = os.environ.get("STOCKFISH_PATH")
     if env_path and os.path.isfile(env_path):
         return env_path
 
-    # Check PATH
     sf = shutil.which("stockfish")
     if sf:
         return sf
 
-    # Common locations
     for path in [
         "/usr/local/bin/stockfish",
         "/opt/homebrew/bin/stockfish",
@@ -121,19 +131,80 @@ def find_stockfish() -> str:
     sys.exit(1)
 
 
-def create_stockfish(path: str, skill_level: int, uci_elo: int | None) -> chess.engine.SimpleEngine:
-    """Create a Stockfish engine configured to play at a given strength."""
+def get_prior_elo() -> int | None:
+    """Read the last kept estimated_elo from results.tsv, or None if unavailable."""
+    if not RESULTS_FILE.exists():
+        return None
+    try:
+        last_kept_elo = None
+        with open(RESULTS_FILE) as f:
+            for line in f:
+                parts = line.strip().split("\t")
+                if len(parts) >= 4 and parts[3] == "keep":
+                    try:
+                        last_kept_elo = float(parts[1])
+                    except ValueError:
+                        continue
+        return int(round(last_kept_elo)) if last_kept_elo is not None else None
+    except Exception:
+        return None
+
+
+def stockfish_elo_bounds(path: str) -> tuple[int, int]:
+    """Get the min/max UCI_Elo supported by this Stockfish binary."""
+    sf = chess.engine.SimpleEngine.popen_uci(path)
+    try:
+        elo_option = sf.options.get("UCI_Elo")
+        if elo_option is not None:
+            return int(elo_option.min), int(elo_option.max)
+        return 1320, 3190  # reasonable defaults
+    finally:
+        sf.quit()
+
+
+def compute_anchor_elos(center: int, sf_min: int, sf_max: int) -> list[int]:
+    """Compute anchor ELO levels centered on `center`, clamped to Stockfish bounds."""
+    start = center - ANCHOR_STEP * (ANCHOR_COUNT // 2)
+    start = max(sf_min, start)
+    end = start + ANCHOR_STEP * (ANCHOR_COUNT - 1)
+    if end > sf_max:
+        start = max(sf_min, sf_max - ANCHOR_STEP * (ANCHOR_COUNT - 1))
+    return [start + ANCHOR_STEP * i for i in range(ANCHOR_COUNT)]
+
+
+def create_stockfish(path: str, uci_elo: int) -> chess.engine.SimpleEngine:
+    """Create a Stockfish engine configured to play at a given UCI_Elo."""
     sf = chess.engine.SimpleEngine.popen_uci(path)
     config: dict = {
-        "Skill Level": skill_level,
+        "UCI_LimitStrength": True,
+        "UCI_Elo": uci_elo,
         "Threads": 1,
         "Hash": 16,
     }
-    if uci_elo is not None:
-        config["UCI_LimitStrength"] = True
-        config["UCI_Elo"] = uci_elo
     sf.configure(config)
     return sf
+
+
+# ---------------------------------------------------------------------------
+# OPENING SETUP
+# ---------------------------------------------------------------------------
+
+def build_opening_board(opening_index: int) -> tuple[chess.Board, chess.pgn.Game]:
+    """Build a board and PGN game from a predefined opening line."""
+    board = chess.Board()
+    game = chess.pgn.Game()
+    node = game
+
+    line = OPENING_LINES[opening_index % len(OPENING_LINES)]
+    for uci_str in line:
+        move = chess.Move.from_uci(uci_str)
+        if move in board.legal_moves:
+            node = node.add_variation(move)
+            board.push(move)
+        else:
+            break
+
+    return board, game
 
 
 # ---------------------------------------------------------------------------
@@ -146,21 +217,24 @@ def play_game(
     stockfish_elo: int,
     engine_is_white: bool,
     game_id: int,
+    opening_index: int = 0,
 ) -> GameResult:
     """Play one game between our engine and Stockfish."""
-    board = chess.Board()
+    board, game = build_opening_board(opening_index)
     engine_color = chess.WHITE if engine_is_white else chess.BLACK
     engine_moves: list[MoveRecord] = []
     move_number = 0
 
-    game = chess.pgn.Game()
     game.headers["White"] = "Engine" if engine_is_white else f"Stockfish ({stockfish_elo})"
     game.headers["Black"] = f"Stockfish ({stockfish_elo})" if engine_is_white else "Engine"
+
+    # Find the last node in the PGN (end of opening line)
     node = game
+    while node.variations:
+        node = node.variations[0]
 
     while not board.is_game_over(claim_draw=True) and board.ply() < MAX_PLIES:
         if board.turn == engine_color:
-            # Our engine's turn
             move_number += 1
             fen_before = board.fen()
             try:
@@ -180,20 +254,16 @@ def play_game(
                 ))
             except Exception as e:
                 print(f"  Engine error: {e}", file=sys.stderr)
-                # Pick any legal move on error
                 move = next(iter(board.legal_moves))
         else:
-            # Stockfish's turn
             sf_result = stockfish.play(board, chess.engine.Limit(time=STOCKFISH_MOVETIME_S))
             move = sf_result.move
 
         node = node.add_variation(move)
         board.push(move)
 
-    # Determine result
     outcome = board.outcome(claim_draw=True)
     if outcome is None:
-        # Hit MAX_PLIES
         result_val = 0.5
         reason = "max_plies"
     elif outcome.winner is None:
@@ -216,51 +286,51 @@ def play_game(
         result_reason=reason,
         num_plies=board.ply(),
         pgn=str(game),
+        opening_index=opening_index,
         engine_moves=engine_moves,
     )
 
 
 # ---------------------------------------------------------------------------
-# ELO ESTIMATION
+# ELO ESTIMATION (binary search over logistic expected score)
 # ---------------------------------------------------------------------------
+
+def expected_score(player_elo: float, opponent_elo: float) -> float:
+    """Standard ELO expected score: E = 1 / (1 + 10^((opp - player) / 400))."""
+    return 1.0 / (1.0 + 10 ** ((opponent_elo - player_elo) / 400.0))
+
 
 def estimate_elo(results: list[GameResult]) -> float:
     """
-    Estimate engine ELO using performance rating.
+    Estimate engine ELO via binary search.
 
-    Groups games by Stockfish level, computes score percentage,
-    then uses the standard performance rating formula.
+    Finds the rating R where the sum of expected scores against all opponents
+    matches the actual total score. This properly weights games by opponent
+    strength using the standard logistic ELO formula.
     """
     if not results:
         return 0.0
 
-    total_score = 0.0
-    total_games = 0
-    weighted_elo = 0.0
+    actual_score = sum(g.result for g in results)
+    total_games = len(results)
 
-    for game in results:
-        total_score += game.result
-        total_games += 1
-        weighted_elo += game.stockfish_elo
+    # Edge cases
+    if actual_score <= 0.0:
+        return min(g.stockfish_elo for g in results) - 400
+    if actual_score >= total_games:
+        return max(g.stockfish_elo for g in results) + 400
 
-    if total_games == 0:
-        return 0.0
+    lo = 400.0
+    hi = 3000.0
+    for _ in range(60):
+        mid = (lo + hi) / 2.0
+        expected_total = sum(expected_score(mid, g.stockfish_elo) for g in results)
+        if expected_total < actual_score:
+            lo = mid
+        else:
+            hi = mid
 
-    avg_opponent_elo = weighted_elo / total_games
-    score_pct = total_score / total_games
-
-    # Clamp to avoid infinity
-    if score_pct >= 1.0:
-        return avg_opponent_elo + 400
-    if score_pct <= 0.0:
-        return avg_opponent_elo - 400
-
-    # Standard performance rating: R_p = R_avg + 400 * (W - L) / N
-    wins = total_score
-    losses = total_games - total_score
-    performance = avg_opponent_elo + 400 * (wins - losses) / total_games
-
-    return round(performance, 1)
+    return round((lo + hi) / 2.0, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -271,13 +341,13 @@ def save_telemetry(
     results: list[GameResult],
     estimated_elo: float,
     elapsed_seconds: float,
+    anchor_elos: list[int],
 ) -> Path:
     """Save game telemetry to JSONL file in games/ directory."""
     GAMES_DIR.mkdir(exist_ok=True)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filepath = GAMES_DIR / f"{timestamp}_games.jsonl"
 
-    # First line: summary metadata
     wins = sum(1 for g in results if g.result == 1.0)
     losses = sum(1 for g in results if g.result == 0.0)
     draws = sum(1 for g in results if g.result == 0.5)
@@ -292,7 +362,7 @@ def save_telemetry(
         "draws": draws,
         "time_seconds": round(elapsed_seconds, 1),
         "engine_movetime_ms": ENGINE_MOVETIME_MS,
-        "stockfish_levels": [elo for elo, _, _ in STOCKFISH_LEVELS],
+        "anchor_elos": anchor_elos,
     }
 
     with open(filepath, "w") as f:
@@ -308,6 +378,7 @@ def save_telemetry(
                 "result_reason": game.result_reason,
                 "num_plies": game.num_plies,
                 "pgn": game.pgn,
+                "opening_index": game.opening_index,
                 "engine_moves": [
                     {
                         "move_number": m.move_number,
@@ -337,6 +408,17 @@ def run_evaluation() -> None:
     stockfish_path = find_stockfish()
     print(f"Stockfish: {stockfish_path}")
 
+    # Determine anchor levels (adaptive: center on last kept ELO from results.tsv)
+    prior_elo = get_prior_elo()
+    center = prior_elo if prior_elo is not None else DEFAULT_ANCHOR_CENTER
+    sf_min, sf_max = stockfish_elo_bounds(stockfish_path)
+    anchor_elos = compute_anchor_elos(center, sf_min, sf_max)
+    if prior_elo is not None:
+        print(f"Prior ELO from results.tsv: {prior_elo}")
+    else:
+        print(f"No prior ELO found, using default center: {DEFAULT_ANCHOR_CENTER}")
+    print(f"Anchor ELOs: {anchor_elos}")
+
     # Import engine fresh (picks up agent's latest edits)
     if "engine" in sys.modules:
         engine_module = importlib.reload(sys.modules["engine"])
@@ -347,37 +429,28 @@ def run_evaluation() -> None:
     all_results: list[GameResult] = []
     game_id = 0
 
-    for approx_elo, skill_level, uci_elo in STOCKFISH_LEVELS:
-        print(f"\n--- Testing vs Stockfish ~{approx_elo} (Skill {skill_level}) ---")
-        level_results: list[GameResult] = []
+    for level_index, elo in enumerate(anchor_elos):
+        print(f"\n--- Testing vs Stockfish {elo} ---")
 
-        stockfish = create_stockfish(stockfish_path, skill_level, uci_elo)
+        stockfish = create_stockfish(stockfish_path, elo)
         try:
-            for i in range(GAMES_PER_LEVEL):
-                engine_is_white = (i % 2 == 0)
+            for game_index in range(GAMES_PER_LEVEL):
+                engine_is_white = (level_index + game_index) % 2 == 0
+                opening_index = (level_index * GAMES_PER_LEVEL + game_index) % len(OPENING_LINES)
                 game_id += 1
                 color_str = "W" if engine_is_white else "B"
 
                 game_result = play_game(
-                    engine_module, stockfish, approx_elo,
-                    engine_is_white, game_id,
+                    engine_module, stockfish, elo,
+                    engine_is_white, game_id, opening_index,
                 )
-                level_results.append(game_result)
                 all_results.append(game_result)
 
                 result_str = {1.0: "WIN", 0.5: "DRAW", 0.0: "LOSS"}[game_result.result]
-                print(f"  Game {game_id} [{color_str}]: {result_str} "
+                print(f"  Game {game_id} [{color_str}] opening={opening_index}: {result_str} "
                       f"({game_result.result_reason}, {game_result.num_plies} plies)")
         finally:
             stockfish.quit()
-
-        # Adaptive early stopping
-        level_score = sum(g.result for g in level_results)
-        if level_score == 0:
-            print(f"  Lost all games at ~{approx_elo}, stopping.")
-            break
-        elif level_score == GAMES_PER_LEVEL:
-            print(f"  Won all games at ~{approx_elo}, moving up.")
 
     elapsed = time.monotonic() - start_time
     elo = estimate_elo(all_results)
@@ -386,7 +459,7 @@ def run_evaluation() -> None:
     draws = sum(1 for g in all_results if g.result == 0.5)
 
     # Save telemetry
-    telemetry_path = save_telemetry(all_results, elo, elapsed)
+    telemetry_path = save_telemetry(all_results, elo, elapsed, anchor_elos)
     print(f"\nTelemetry saved to: {telemetry_path}")
 
     # Print parseable output (matches autoresearch grep pattern)
