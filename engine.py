@@ -246,6 +246,56 @@ TT_SIZE = 1 << 20  # ~1M entries
 
 
 # ---------------------------------------------------------------------------
+# OPENING BOOK
+# ---------------------------------------------------------------------------
+
+_OPENING_LINES = [
+    # === White repertoire (1.e4) ===
+    # Ruy Lopez: 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4 Nf6 5.O-O
+    ["e2e4", "e7e5", "g1f3", "b8c6", "f1b5", "a7a6", "b5a4", "g8f6", "e1g1"],
+    # Italian: 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nf6 4.d3
+    ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "g8f6", "d2d3"],
+    # Sicilian Open (2...d6): 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4
+    ["e2e4", "c7c5", "g1f3", "d7d6", "d2d4", "c5d4", "f3d4"],
+    # Sicilian Open (2...Nc6): 1.e4 c5 2.Nf3 Nc6 3.d4 cxd4 4.Nxd4
+    ["e2e4", "c7c5", "g1f3", "b8c6", "d2d4", "c5d4", "f3d4"],
+    # French: 1.e4 e6 2.d4 d5 3.Nc3
+    ["e2e4", "e7e6", "d2d4", "d7d5", "b1c3"],
+    # Caro-Kann: 1.e4 c6 2.d4 d5 3.Nc3
+    ["e2e4", "c7c6", "d2d4", "d7d5", "b1c3"],
+    # Scandinavian: 1.e4 d5 2.exd5 Qxd5 3.Nc3
+    ["e2e4", "d7d5", "e4d5", "d8d5", "b1c3"],
+    # === Black repertoire vs 1.d4 ===
+    # QGD: 1.d4 d5 2.c4 e6 3.Nc3 Nf6
+    ["d2d4", "d7d5", "c2c4", "e7e6", "b1c3", "g8f6"],
+    # London: 1.d4 d5 2.Bf4 Nf6 3.e3 c5
+    ["d2d4", "d7d5", "c1f4", "g8f6", "e2e3", "c7c5"],
+    # 1.d4 d5 2.Nf3 Nf6 3.c4 e6
+    ["d2d4", "d7d5", "g1f3", "g8f6", "c2c4", "e7e6"],
+    # === Black repertoire vs 1.c4 / 1.Nf3 ===
+    ["c2c4", "e7e5"],
+    ["g1f3", "d7d5"],
+]
+
+
+def _build_opening_book():
+    """Build opening book mapping position keys to moves."""
+    book = {}
+    for line in _OPENING_LINES:
+        board = chess.Board()
+        for uci in line:
+            key = " ".join(board.fen().split()[:4])
+            move = chess.Move.from_uci(uci)
+            if key not in book:
+                book[key] = move
+            board.push(move)
+    return book
+
+
+OPENING_BOOK = _build_opening_book()
+
+
+# ---------------------------------------------------------------------------
 # DATA STRUCTURES
 # ---------------------------------------------------------------------------
 
@@ -840,6 +890,9 @@ class Searcher:
 # PUBLIC INTERFACE
 # ---------------------------------------------------------------------------
 
+_searcher = Searcher()
+
+
 def choose_move(
     board: chess.Board,
     depth: int | None = None,
@@ -856,8 +909,15 @@ def choose_move(
     Returns:
         SearchResult with move, score, depth, nodes, PV, and telemetry.
     """
-    searcher = Searcher()
-    return searcher.search(board, max_depth=depth, movetime_ms=movetime_ms)
+    # Opening book lookup
+    key = " ".join(board.fen().split()[:4])
+    book_move = OPENING_BOOK.get(key)
+    if book_move and book_move in board.legal_moves:
+        return SearchResult(
+            move=book_move, score=0, depth=0, nodes=0, pv=[], time_ms=0.0,
+        )
+
+    return _searcher.search(board, max_depth=depth, movetime_ms=movetime_ms)
 
 
 def get_telemetry(result: SearchResult) -> dict:

@@ -100,14 +100,16 @@ LOOP FOREVER:
 
 ## Strategy guidance
 
+**CRITICAL CONTEXT**: This is a pure Python engine tested at 100ms per move. At that budget, search typically reaches depth 3-5. The #1 priority is making search faster and deeper — getting even one extra ply of depth is worth far more than any eval tweak. Do NOT spend time on piece value tuning or PST refinements early on — at depth 3, the engine can't see basic tactics, so eval quality barely matters.
+
 Here are high-value directions to try, roughly in priority order:
 
-1. **Piece value tuning** — cheapest experiments, clear signal. Try small adjustments to knight/bishop/rook/queen values.
-2. **Piece-square tables** — big impact, many parameters. Refine positional incentives. Consider separate MG/EG tables.
-3. **Search improvements** — better move ordering, more aggressive pruning, search extensions for checks/passed pawns.
-4. **New evaluation terms** — rook on 7th rank, knight outposts, connected rooks, king tropism, space control.
-5. **Pawn structure** — refine passed pawn bonuses, add backward pawn detection, pawn chains.
-6. **Endgame knowledge** — king centralization, pawn race detection, specific endgame patterns.
+1. **Search speed and pruning** — the biggest lever. The engine is slow because it's Python. Make it search deeper in the same 100ms. Ideas: more aggressive null move pruning (adaptive R = 2 + depth/4), reverse futility pruning (skip nodes where static eval is already way above beta), futility pruning at frontier nodes, late move pruning (skip quiet moves entirely after a threshold at low depths), razoring (drop to quiescence when eval is far below alpha at low depth). Each of these prunes branches and lets the engine reach deeper.
+2. **Move ordering improvements** — better ordering means more beta cutoffs, which means faster search. Ideas: separate capture history table, countermove heuristic (the move that refuted the previous move), improve MVV-LVA with static exchange evaluation (SEE).
+3. **Search extensions and reductions** — tune LMR more aggressively (reduce more at higher depths and higher move indices), add singular extensions for TT moves, extend on passed pawn pushes to 7th rank.
+4. **Reduce Python overhead** — avoid creating lists where generators work, cache expensive computations, avoid redundant board.is_check() calls, pre-compute piece lists. Even small constant-factor speedups compound across millions of nodes.
+5. **Lightweight evaluation terms** — only add terms that are cheap to compute. Good: knight outpost bonus, rook on 7th rank, center pawn bonus, undeveloped minor penalty. Bad: anything that loops over many squares or calls board.attacks_mask() repeatedly.
+6. **Piece-square tables and piece values** — low priority. Only tune these after search is solid. Small PST changes are indistinguishable from noise at low depth.
 
 **Noise warning**: The evaluation has variance (~30-50 ELO per run due to limited games). Improvements under ~30 ELO may be noise. If an experiment shows marginal improvement, consider re-running to confirm. Be skeptical of small gains.
 
