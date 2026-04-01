@@ -241,7 +241,7 @@ const ASPIRATION_WINDOW: i32 = 50;
 const LMR_FULL_DEPTH_MOVES: usize = 4;
 const LMR_REDUCTION_LIMIT: i32 = 3;
 
-const TT_SIZE: usize = 1 << 22; // ~4M entries
+const TT_SIZE: usize = 1 << 23; // ~8M entries
 
 // ============================================================
 // TRANSPOSITION TABLE
