@@ -8,9 +8,9 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f7f7f7;
+    color: #333;
     min-height: 100vh;
 }
 
@@ -23,8 +23,8 @@ body {
 /* --- Sidebar --- */
 .sidebar {
     width: 280px;
-    background: #16213e;
-    border-right: 1px solid #2a2a4a;
+    background: #fff;
+    border-right: 1px solid #e0e0e0;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -32,44 +32,43 @@ body {
 
 .sidebar-header {
     padding: 16px;
-    border-bottom: 1px solid #2a2a4a;
-    background: #0f3460;
+    border-bottom: 1px solid #e0e0e0;
 }
 
 .sidebar-header h1 {
     font-size: 14px;
     font-weight: 600;
-    color: #e94560;
+    color: #333;
     margin-bottom: 8px;
 }
 
 .drop-zone {
-    border: 2px dashed #2a2a4a;
+    border: 2px dashed #ccc;
     border-radius: 6px;
     padding: 16px;
     text-align: center;
     font-size: 12px;
-    color: #888;
+    color: #999;
     cursor: pointer;
     transition: border-color 0.2s;
 }
 
 .drop-zone:hover, .drop-zone.active {
-    border-color: #e94560;
-    color: #e94560;
+    border-color: #888;
+    color: #555;
 }
 
 .drop-zone input { display: none; }
 
 .summary-bar {
     padding: 10px 16px;
-    border-bottom: 1px solid #2a2a4a;
+    border-bottom: 1px solid #e0e0e0;
     font-size: 12px;
-    background: #1a1a2e;
+    background: #fafafa;
     display: none;
 }
 
-.summary-bar .elo { color: #4ecca3; font-weight: 700; font-size: 16px; }
+.summary-bar .elo { color: #333; font-weight: 700; font-size: 16px; }
 .summary-bar .stats { color: #888; margin-top: 4px; }
 
 .game-list {
@@ -88,13 +87,13 @@ body {
     border-left: 3px solid transparent;
 }
 
-.game-item:hover { background: #2a2a4a; }
-.game-item.selected { background: #2a2a4a; border-left-color: #e94560; }
+.game-item:hover { background: #f0f0f0; }
+.game-item.selected { background: #f0f0f0; border-left-color: #b58863; }
 .game-item .game-title { font-weight: 600; margin-bottom: 2px; }
 .game-item .game-meta { color: #888; font-size: 11px; }
-.game-item .win { color: #4ecca3; }
-.game-item .loss { color: #e94560; }
-.game-item .draw { color: #f0c040; }
+.game-item .win { color: #629924; }
+.game-item .loss { color: #c33; }
+.game-item .draw { color: #bf8f00; }
 
 /* --- Main area --- */
 .main {
@@ -117,11 +116,10 @@ body {
 .eval-bar-container {
     width: 28px;
     height: 480px;
-    background: #333;
-    border-radius: 4px;
+    background: #444;
+    border-radius: 3px;
     overflow: hidden;
     position: relative;
-    border: 1px solid #2a2a4a;
 }
 
 .eval-bar-white {
@@ -141,7 +139,7 @@ body {
     z-index: 1;
     top: 50%;
     transform: translateY(-50%);
-    color: #888;
+    color: #999;
 }
 
 /* --- Chessboard --- */
@@ -149,8 +147,6 @@ body {
     display: grid;
     grid-template-columns: repeat(8, 60px);
     grid-template-rows: repeat(8, 60px);
-    border: 2px solid #2a2a4a;
-    border-radius: 4px;
     overflow: hidden;
 }
 
@@ -165,37 +161,38 @@ body {
     position: relative;
 }
 
-.square.light { background: #eeeed2; }
-.square.dark { background: #769656; }
-.square.highlight-from { background: #f6f669 !important; }
-.square.highlight-to { background: #f6f669 !important; }
+.square.light { background: #f0d9b5; }
+.square.dark { background: #b58863; }
+.square.light.highlight-from { background: #cdd26a !important; }
+.square.light.highlight-to { background: #cdd26a !important; }
+.square.dark.highlight-from { background: #aaa23a !important; }
+.square.dark.highlight-to { background: #aaa23a !important; }
 
 .square .coord {
     position: absolute;
     font-size: 10px;
     font-weight: 700;
-    opacity: 0.5;
 }
 
 .square .coord-file { bottom: 2px; right: 4px; }
 .square .coord-rank { top: 2px; left: 4px; }
-.square.light .coord { color: #769656; }
-.square.dark .coord { color: #eeeed2; }
+.square.light .coord { color: #b58863; }
+.square.dark .coord { color: #f0d9b5; }
 
 /* --- Telemetry panel --- */
 .telemetry {
     width: 260px;
-    background: #16213e;
+    background: #fff;
     border-radius: 6px;
-    border: 1px solid #2a2a4a;
+    border: 1px solid #e0e0e0;
     padding: 16px;
     height: 480px;
     overflow-y: auto;
 }
 
 .telemetry h3 {
-    font-size: 12px;
-    color: #e94560;
+    font-size: 11px;
+    color: #999;
     margin-bottom: 12px;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -205,22 +202,23 @@ body {
     display: flex;
     justify-content: space-between;
     padding: 6px 0;
-    border-bottom: 1px solid #2a2a4a;
+    border-bottom: 1px solid #f0f0f0;
     font-size: 12px;
 }
 
-.telemetry-row .label { color: #888; }
-.telemetry-row .value { color: #e0e0e0; font-weight: 600; }
-.telemetry-row .value.positive { color: #4ecca3; }
-.telemetry-row .value.negative { color: #e94560; }
+.telemetry-row .label { color: #999; }
+.telemetry-row .value { color: #333; font-weight: 600; }
+.telemetry-row .value.positive { color: #629924; }
+.telemetry-row .value.negative { color: #c33; }
 
 .pv-line {
     margin-top: 12px;
     padding: 8px;
-    background: #1a1a2e;
+    background: #fafafa;
     border-radius: 4px;
     font-size: 11px;
-    color: #aaa;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    color: #888;
     word-break: break-all;
     line-height: 1.6;
 }
@@ -234,9 +232,9 @@ body {
 }
 
 .controls button {
-    background: #16213e;
-    color: #e0e0e0;
-    border: 1px solid #2a2a4a;
+    background: #fff;
+    color: #333;
+    border: 1px solid #ddd;
     border-radius: 4px;
     padding: 8px 16px;
     font-family: inherit;
@@ -245,7 +243,7 @@ body {
     transition: background 0.15s;
 }
 
-.controls button:hover { background: #2a2a4a; }
+.controls button:hover { background: #f0f0f0; }
 .controls button:disabled { opacity: 0.3; cursor: default; }
 
 .move-list {
@@ -258,29 +256,79 @@ body {
     max-height: 120px;
     overflow-y: auto;
     padding: 8px;
-    background: #16213e;
+    background: #fff;
     border-radius: 4px;
-    border: 1px solid #2a2a4a;
+    border: 1px solid #e0e0e0;
 }
 
-.move-list .move-num { color: #888; margin-right: 2px; min-width: 24px; }
+.move-list .move-num { color: #999; margin-right: 2px; min-width: 24px; }
 .move-list .move {
     padding: 2px 4px;
     border-radius: 2px;
     cursor: pointer;
     margin-right: 4px;
 }
-.move-list .move:hover { background: #2a2a4a; }
-.move-list .move.current { background: #e94560; color: #fff; }
+.move-list .move:hover { background: #f0f0f0; }
+.move-list .move.current { background: #b58863; color: #fff; }
 
 .empty-state {
     text-align: center;
-    color: #555;
+    color: #aaa;
     font-size: 14px;
     line-height: 2;
 }
 
 .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+
+/* --- Pieces --- */
+.piece-white {
+    color: #fff;
+    text-shadow:
+        -1px -1px 0 #000, 1px -1px 0 #000,
+        -1px  1px 0 #000, 1px  1px 0 #000,
+        0 -1px 0 #000, 0 1px 0 #000,
+        -1px 0 0 #000, 1px 0 0 #000;
+}
+.piece-black {
+    color: #000;
+    text-shadow: none;
+}
+
+/* --- Player labels --- */
+.board-with-labels {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.player-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    padding: 0 2px;
+}
+
+.player-label .player-tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.player-tag.engine {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.player-tag.stockfish {
+    background: #fce4ec;
+    color: #c62828;
+}
 </style>
 </head>
 <body>
@@ -314,7 +362,11 @@ body {
                     <div class="eval-bar-label" id="evalBarLabel">0.0</div>
                     <div class="eval-bar-white" id="evalBarWhite" style="height: 50%;"></div>
                 </div>
-                <div class="board" id="board"></div>
+                <div class="board-with-labels">
+                    <div class="player-label" id="playerTop"></div>
+                    <div class="board" id="board"></div>
+                    <div class="player-label" id="playerBottom"></div>
+                </div>
                 <div class="telemetry" id="telemetry">
                     <h3>Engine Thinking</h3>
                     <div id="telemetryContent">
@@ -338,11 +390,12 @@ body {
 </div>
 
 <script>
-// Piece Unicode mapping
-const PIECES = {
-    'P': '\u2659', 'N': '\u2658', 'B': '\u2657', 'R': '\u2656', 'Q': '\u2655', 'K': '\u2654',
+// Piece Unicode mapping — use filled glyphs for both; CSS handles color
+const PIECE_CHAR = {
+    'P': '\u265F', 'N': '\u265E', 'B': '\u265D', 'R': '\u265C', 'Q': '\u265B', 'K': '\u265A',
     'p': '\u265F', 'n': '\u265E', 'b': '\u265D', 'r': '\u265C', 'q': '\u265B', 'k': '\u265A',
 };
+function isWhitePiece(p) { return p && p === p.toUpperCase(); }
 
 // State
 let games = [];
@@ -355,6 +408,7 @@ let telemetryMap = {}; // ply -> engine telemetry
 let currentPly = 0;
 let flipped = false;
 let autoplayInterval = null;
+let lastEvalScore = null; // persist eval across Stockfish moves
 
 // --- File Loading ---
 const dropZone = document.getElementById('dropZone');
@@ -451,10 +505,39 @@ function selectGame(index) {
     }
 
     currentPly = 0;
+    lastEvalScore = null;
+    updatePlayerLabels();
     renderBoard();
     renderMoveList();
     updateTelemetry();
     updateControls();
+}
+
+function updatePlayerLabels() {
+    if (!currentGame) return;
+    const engineIsWhite = currentGame.engine_color === 'white';
+    // Top = the side shown at the top of the board (the "away" side)
+    // Bottom = the side shown at the bottom
+    const topIsBlack = !flipped; // normally black is on top
+    const topLabel = document.getElementById('playerTop');
+    const bottomLabel = document.getElementById('playerBottom');
+
+    const engineName = 'Engine';
+    const sfName = `Stockfish ${currentGame.stockfish_elo}`;
+
+    if (topIsBlack) {
+        // top = black side
+        const topIsEngine = !engineIsWhite;
+        topLabel.innerHTML = `${topIsEngine ? '<span class="player-tag engine">Engine</span>' : '<span class="player-tag stockfish">Stockfish</span>'} ${topIsEngine ? engineName : sfName}`;
+        const botIsEngine = engineIsWhite;
+        bottomLabel.innerHTML = `${botIsEngine ? '<span class="player-tag engine">Engine</span>' : '<span class="player-tag stockfish">Stockfish</span>'} ${botIsEngine ? engineName : sfName}`;
+    } else {
+        // flipped: top = white side
+        const topIsEngine = engineIsWhite;
+        topLabel.innerHTML = `${topIsEngine ? '<span class="player-tag engine">Engine</span>' : '<span class="player-tag stockfish">Stockfish</span>'} ${topIsEngine ? engineName : sfName}`;
+        const botIsEngine = !engineIsWhite;
+        bottomLabel.innerHTML = `${botIsEngine ? '<span class="player-tag engine">Engine</span>' : '<span class="player-tag stockfish">Stockfish</span>'} ${botIsEngine ? engineName : sfName}`;
+    }
 }
 
 function parsePGN(pgn) {
@@ -734,7 +817,12 @@ function renderBoard() {
             if (sq === hlTo) el.classList.add('highlight-to');
 
             const piece = boardState[sq];
-            if (piece) el.textContent = PIECES[piece] || '';
+            if (piece) {
+                const span = document.createElement('span');
+                span.textContent = PIECE_CHAR[piece] || '';
+                span.className = isWhitePiece(piece) ? 'piece-white' : 'piece-black';
+                el.appendChild(span);
+            }
 
             // Coordinates
             if (f === (flipped ? 7 : 0)) {
@@ -812,17 +900,19 @@ function updateTelemetry() {
                 : (currentPly % 2 === 0); // even plies are black moves
             if (!isEnginePly) {
                 content.innerHTML = '<div class="telemetry-row"><span class="label">Stockfish move</span></div>';
-                updateEvalBar(null);
+                // Keep the last known eval rather than resetting
+                updateEvalBar(lastEvalScore);
                 return;
             }
         }
         content.innerHTML = '<div class="telemetry-row"><span class="label">No data</span></div>';
-        updateEvalBar(null);
+        updateEvalBar(lastEvalScore);
         return;
     }
 
     // Determine score from white's perspective for eval bar
     const whiteScore = currentGame.engine_color === 'white' ? tm.score : -tm.score;
+    lastEvalScore = whiteScore;
     updateEvalBar(whiteScore);
 
     const scoreStr = formatScore(tm.score);
@@ -907,7 +997,7 @@ document.getElementById('btnStart').addEventListener('click', () => goToPly(0));
 document.getElementById('btnPrev').addEventListener('click', () => goToPly(currentPly - 1));
 document.getElementById('btnNext').addEventListener('click', () => goToPly(currentPly + 1));
 document.getElementById('btnEnd').addEventListener('click', () => goToPly(positions.length - 1));
-document.getElementById('btnFlip').addEventListener('click', () => { flipped = !flipped; renderBoard(); });
+document.getElementById('btnFlip').addEventListener('click', () => { flipped = !flipped; renderBoard(); updatePlayerLabels(); });
 
 document.getElementById('btnAutoplay').addEventListener('click', () => {
     if (autoplayInterval) {
