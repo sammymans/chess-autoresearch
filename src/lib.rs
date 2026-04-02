@@ -558,25 +558,17 @@ fn evaluate_mobility(board: &Board) -> i32 {
             board.color_combined(Color::Black)
         };
 
-        // Count attacks for each piece type
+        // Count attacks for minor pieces only (rook/queen mobility is expensive)
+        let blockers = *board.combined();
         for &(piece, weight) in &[
             (Piece::Knight, MOBILITY_WEIGHT_KNIGHT),
             (Piece::Bishop, MOBILITY_WEIGHT_BISHOP),
-            (Piece::Rook, MOBILITY_WEIGHT_ROOK),
-            (Piece::Queen, MOBILITY_WEIGHT_QUEEN),
         ] {
             let piece_bb = *board.pieces(piece) & *own;
             for sq in iter_bits(piece_bb) {
-                let blockers = *board.combined();
                 let mobility = match piece {
                     Piece::Knight => popcount(chess::get_knight_moves(sq) & !*own),
                     Piece::Bishop => popcount(chess::get_bishop_moves(sq, blockers) & !*own),
-                    Piece::Rook => popcount(chess::get_rook_moves(sq, blockers) & !*own),
-                    Piece::Queen => {
-                        let bm = chess::get_bishop_moves(sq, *board.combined());
-                        let rm = chess::get_rook_moves(sq, *board.combined());
-                        popcount((bm | rm) & !own)
-                    }
                     _ => 0,
                 };
                 score += sign * mobility * weight;
