@@ -957,6 +957,15 @@ impl Searcher {
             return self.quiescence(board, alpha, beta, ply);
         }
 
+        // Reverse futility pruning: if static eval is far above beta at shallow depth, prune
+        if !in_check && depth <= 3 && ply > 0 {
+            let rfp_margin = 120 * depth;
+            let static_eval = evaluate(board);
+            if static_eval - rfp_margin >= beta {
+                return static_eval;
+            }
+        }
+
         // TT probe
         let tt_key = board.get_hash();
         let mut tt_move = None;
