@@ -1,99 +1,58 @@
 # chess-autoresearch
 
-Give an AI agent a chess engine with hand-tuned heuristics and let it experiment overnight. It tweaks piece values, evaluation terms, and search heuristics, plays against Stockfish to measure strength, keeps improvements, discards regressions, and repeats. You wake up to a stronger engine.
+Give an AI agent a chess engine and let it experiment overnight. It modifies search heuristics, evaluation terms, and pruning strategies, plays against Stockfish to measure strength, keeps improvements, discards regressions, and repeats. You wake up to a stronger engine.
 
 Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch).
 
 ## How it works
 
-The repo has a small set of files:
+The engine is a classical alpha-beta searcher written in Rust (~1300 lines), with hand-crafted evaluation — no neural networks, no training data. The agent's only job is to edit `src/lib.rs` and see if the ELO goes up.
 
-- **`src/lib.rs`** — the Rust search backend. Alpha-beta search, evaluation, move ordering, pruning — all in ~1000 lines of Rust. ~2M nodes/sec. **This file is edited and iterated on by the agent**.
-- **`engine.py`** — thin Python wrapper. Imports the Rust module and provides the interface that the harness expects. Read-only.
-- **`eval_harness.py`** — fixed evaluation harness. Plays the engine against Stockfish at calibrated ELO levels, computes an estimated rating, and saves game telemetry. Not modified.
-- **`program.md`** — agent instructions. Point your agent here and let it go. **This file is edited and iterated on by the human**.
-- **`play.py`** — interactive CLI for playing against the engine.
-- **`server.py`** — lightweight FastAPI server for browser-based play.
-- **`replay.html`** — browser-based game replay viewer with full engine telemetry.
+Each experiment:
+1. Agent modifies the Rust engine (`src/lib.rs`)
+2. Rebuilds (`maturin develop --release`)
+3. Plays 10 games against Stockfish at adaptive difficulty levels
+4. Keeps the change if ELO improved, reverts if not
+5. Repeats
 
-The metric is **estimated ELO** — higher is better. Each evaluation plays 10 games against Stockfish at adaptive ELO levels centered on the engine's current strength, alternating colors and openings.
+The evaluation harness automatically centers Stockfish's strength around the engine's current rating, so games are always competitive. ELO is estimated via binary search over the standard logistic formula.
+
+**Key files:**
+- `src/lib.rs` — Rust engine. The only file the agent modifies.
+- `eval_harness.py` — plays games vs Stockfish, estimates ELO.
+- `program.md` — agent instructions. Point your agent here and let it go.
+- `engine.py` — thin Python wrapper between the harness and Rust.
 
 ## Quick start
 
 **Requirements:** Python 3.10+, [uv](https://docs.astral.sh/uv/), Stockfish, Rust toolchain.
 
 ```bash
-# 1. Install uv (if you don't already have it)
+# Install dependencies
+brew install stockfish          # macOS (or apt install stockfish)
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Install Rust (if you don't already have it)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# Build and run
 source "$HOME/.cargo/env"
-
-# 3. Install Stockfish
-brew install stockfish    # macOS
-# apt install stockfish   # Ubuntu/Debian
-
-# 4. Build the Rust engine + install Python dependencies
 uv run maturin develop --release
-
-# 5. Run a baseline evaluation (~3-5 min)
-uv run eval_harness.py
-
-# 6. Play against the engine
-uv run play.py
-uv run play.py --depth 3   # easier
-uv run play.py --depth 8   # harder
+uv run eval_harness.py          # benchmark (~2-3 min)
+uv run play.py                  # play against it
 ```
 
-## Running the agent
-
-Spin up Claude Code (or your agent of choice) in this repo, then prompt:
+## Running autoresearch
 
 ```
-Have a look at program.md and let's kick off a new experiment! Let's do the setup first.
+Read program.md and follow the instructions exactly. Use the run tag "apr1". Start the setup, then kick off the experiment loop. Do not stop until I interrupt you.
 ```
 
-The agent will read the instructions, create a branch, establish a baseline, and start experimenting autonomously. Each experiment takes ~3-5 minutes, so you can expect ~12-15 experiments per hour, or ~100+ overnight.
+The agent creates a branch, establishes a baseline, and starts experimenting autonomously. Each experiment takes ~2-3 minutes (~20-30 per hour, ~200+ overnight).
 
-## Viewing results
+## Results
 
-**Play interactively:**
-```bash
-uv run play.py                    # default settings
-uv run play.py --depth 3          # easy opponent
-uv run play.py --depth 8          # hard opponent
-uv run play.py --color black      # play as black
-uv run play.py --movetime 5000    # 5 seconds per move
-```
+137 experiments across three phases: pure Python engine, Rust rewrite, and eval harness improvements. The engine went from ~800 to ~2650 estimated ELO.
 
-**Replay games from autoresearch runs:**
-Open `replay.html` in your browser and drag in a `.jsonl` file from the `games/` directory. You'll see every game with full engine telemetry — what it was thinking, evaluation scores, principal variation, nodes searched.
-
-**Analyze experiment progress:**
-Open `analysis.ipynb` to plot ELO progression across experiments.
-
-## Project structure
-
-```
-src/lib.rs        — Rust search backend (agent modifies this)
-engine.py         — thin Python wrapper (read-only)
-eval_harness.py   — plays vs Stockfish, measures ELO (do not modify)
-play.py           — interactive CLI game
-server.py         — FastAPI server for browser play
-replay.html       — browser game replay viewer
-program.md        — agent instructions
-analysis.ipynb    — experiment analysis notebook
-Cargo.toml        — Rust dependencies
-pyproject.toml    — Python dependencies + maturin build config
-```
-
-## Design choices
-
-- **Classical engine, no neural networks.** Alpha-beta search with hand-crafted evaluation. No torch, no training data. The "learning" happens through the autoresearch loop editing heuristic constants.
-- **Rust search backend.** ~2M nodes/sec, depth 8-9 at 100ms.
-- **Fixed evaluation harness.** Games against Stockfish at known ELO levels. The metric (estimated ELO) is objective and reproducible.
-- **Full telemetry.** Every engine move during evaluation is logged with eval score, principal variation, depth, nodes, and timing. Replay any game in the browser.
+![ELO Progression](progress-full.png)
 
 ## License
 
